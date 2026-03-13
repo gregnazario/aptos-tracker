@@ -1,4 +1,9 @@
-import { upsertLabel, getLabel, deleteLabel, listLabels, type AddressLabel } from '../db/queries.js';
+import {
+  deleteLabel,
+  getLabel,
+  listLabels,
+  upsertLabel,
+} from '../db/queries.js';
 
 export { getLabel, deleteLabel, listLabels };
 
@@ -6,7 +11,7 @@ export function setLabel(
   address: string,
   type: string,
   name?: string,
-  boundary?: boolean
+  boundary?: boolean,
 ): void {
   upsertLabel(address, {
     label_type: type,

@@ -19,7 +19,10 @@ export interface RawActivity {
   token_standard: string;
 }
 
-async function graphqlRequest(query: string, variables: Record<string, any>): Promise<any> {
+async function graphqlRequest(
+  query: string,
+  variables: Record<string, any>,
+): Promise<any> {
   const maxRetries = 3;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
@@ -30,7 +33,7 @@ async function graphqlRequest(query: string, variables: Record<string, any>): Pr
       });
 
       if (resp.status === 429) {
-        const wait = Math.pow(2, attempt) * 1000;
+        const wait = 2 ** attempt * 1000;
         console.log(`  Rate limited, waiting ${wait}ms...`);
         await sleep(wait);
         continue;
@@ -47,15 +50,17 @@ async function graphqlRequest(query: string, variables: Record<string, any>): Pr
       return json.data;
     } catch (err: any) {
       if (attempt === maxRetries - 1) throw err;
-      const wait = Math.pow(2, attempt) * 1000;
-      console.log(`  Request failed (${err.message}), retrying in ${wait}ms...`);
+      const wait = 2 ** attempt * 1000;
+      console.log(
+        `  Request failed (${err.message}), retrying in ${wait}ms...`,
+      );
       await sleep(wait);
     }
   }
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -64,7 +69,7 @@ function sleep(ms: number): Promise<void> {
 export async function fetchActivitiesForAddress(
   address: string,
   afterVersion: number,
-  limit: number = config.batchSize
+  limit: number = config.batchSize,
 ): Promise<RawActivity[]> {
   const query = `
     query($address: String!, $after_version: bigint!, $limit: Int!, $types: [String!]!) {
@@ -106,7 +111,7 @@ export async function fetchActivitiesForAddress(
  * Fetch ALL activities within a set of transaction versions (to find counterparties).
  */
 export async function fetchActivitiesByVersions(
-  versions: number[]
+  versions: number[],
 ): Promise<RawActivity[]> {
   if (versions.length === 0) return [];
 
@@ -157,7 +162,9 @@ export async function fetchActivitiesByVersions(
 export async function hasPublishedModules(address: string): Promise<boolean> {
   try {
     const baseUrl = config.graphqlUrl.replace('/v1/graphql', '');
-    const resp = await fetch(`${baseUrl}/v1/accounts/${address}/modules?limit=1`);
+    const resp = await fetch(
+      `${baseUrl}/v1/accounts/${address}/modules?limit=1`,
+    );
     if (!resp.ok) return false;
     const modules = await resp.json();
     return Array.isArray(modules) && modules.length > 0;

@@ -1,5 +1,10 @@
 import { Router } from 'express';
-import { addTrackedAddress, removeTrackedAddress, listTrackedAddresses, getTrackedAddress, updateTrackedAddressAlias } from '../../db/queries.js';
+import {
+  addTrackedAddress,
+  listTrackedAddresses,
+  removeTrackedAddress,
+  updateTrackedAddressAlias,
+} from '../../db/queries.js';
 
 export function addressRoutes(): Router {
   const router = Router();

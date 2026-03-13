@@ -1,4 +1,4 @@
-const api = {
+const _api = {
   async get(path) {
     const resp = await fetch(`/api${path}`);
     if (!resp.ok) throw new Error(`API error: ${resp.status}`);

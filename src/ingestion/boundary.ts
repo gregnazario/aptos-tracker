@@ -1,6 +1,6 @@
-import { getLabel, upsertLabel, isBoundary } from '../db/queries.js';
-import { hasPublishedModules } from './client.js';
 import type { Transfer } from '../db/queries.js';
+import { getLabel, upsertLabel } from '../db/queries.js';
+import { hasPublishedModules } from './client.js';
 
 /**
  * Check all counterparty addresses in a set of transfers.
@@ -8,7 +8,7 @@ import type { Transfer } from '../db/queries.js';
  */
 export async function checkBoundaries(
   transfers: Transfer[],
-  trackedAddress: string
+  trackedAddress: string,
 ): Promise<{ boundaries: string[]; nonBoundaries: string[] }> {
   const counterparties = new Set<string>();
 
@@ -47,7 +47,9 @@ export async function checkBoundaries(
 /**
  * Run heuristics on an unknown address and auto-label it.
  */
-export async function autoDetect(address: string): Promise<{ is_boundary: boolean; label_type: string; confidence: number }> {
+export async function autoDetect(
+  address: string,
+): Promise<{ is_boundary: boolean; label_type: string; confidence: number }> {
   // Check if address has published Move modules
   const hasMods = await hasPublishedModules(address);
 

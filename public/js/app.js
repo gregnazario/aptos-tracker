@@ -1,11 +1,11 @@
 // Main application controller
 
-let currentView = 'sankey';
+let _currentView = 'sankey';
 
 async function refreshView() {
   const params = getFilterParams();
   const viewType = document.getElementById('view-toggle').value;
-  currentView = viewType;
+  _currentView = viewType;
 
   const container = document.getElementById('chart');
 
@@ -22,8 +22,10 @@ async function refreshView() {
     const svg = d3.select(container);
     svg.selectAll('*').remove();
     const rect = svg.node().parentNode.getBoundingClientRect();
-    svg.append('text')
-      .attr('x', rect.width / 2).attr('y', rect.height / 2)
+    svg
+      .append('text')
+      .attr('x', rect.width / 2)
+      .attr('y', rect.height / 2)
       .attr('text-anchor', 'middle')
       .attr('fill', '#8b949e')
       .text('Failed to load data. Check console for details.');
@@ -99,10 +101,22 @@ async function loadAddressList() {
       const removeBtn = document.createElement('button');
       removeBtn.className = 'btn-danger';
       removeBtn.textContent = 'Remove';
-      removeBtn.addEventListener('click', async () => {
-        await api.del('/addresses/' + addr.address);
-        loadAddressList();
-        refreshView();
+      removeBtn.addEventListener('click', () => {
+        if (removeBtn.dataset.confirming) {
+          api.del(`/addresses/${addr.address}`).then(() => {
+            loadAddressList();
+            refreshView();
+          });
+          return;
+        }
+        removeBtn.dataset.confirming = '1';
+        removeBtn.textContent = 'Confirm?';
+        removeBtn.classList.add('btn-danger-confirm');
+        setTimeout(() => {
+          removeBtn.textContent = 'Remove';
+          removeBtn.classList.remove('btn-danger-confirm');
+          delete removeBtn.dataset.confirming;
+        }, 3000);
       });
       actions.appendChild(removeBtn);
 
@@ -184,9 +198,15 @@ document.addEventListener('DOMContentLoaded', () => {
   refreshView();
 
   // Address panel
-  document.getElementById('manage-addresses-btn').addEventListener('click', openAddressPanel);
-  document.getElementById('close-panel-btn').addEventListener('click', closeAddressPanel);
-  document.getElementById('add-address-btn').addEventListener('click', handleAddAddress);
+  document
+    .getElementById('manage-addresses-btn')
+    .addEventListener('click', openAddressPanel);
+  document
+    .getElementById('close-panel-btn')
+    .addEventListener('click', closeAddressPanel);
+  document
+    .getElementById('add-address-btn')
+    .addEventListener('click', handleAddAddress);
   document.getElementById('new-address').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleAddAddress();
   });

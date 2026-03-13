@@ -1,12 +1,11 @@
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { resolve } from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import { addressRoutes } from './routes/addresses.js';
-import { transferRoutes } from './routes/transfers.js';
-import { labelRoutes } from './routes/labels.js';
 import { graphRoutes } from './routes/graph.js';
+import { labelRoutes } from './routes/labels.js';
 import { syncRoutes } from './routes/sync.js';
+import { transferRoutes } from './routes/transfers.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 
 export function initializeDatabase(db: Database.Database): void {
   db.pragma('journal_mode = WAL');

@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { syncAll, syncAddress } from '../../ingestion/sync.js';
-import { listTrackedAddresses, getSyncCursor } from '../../db/queries.js';
+import { getSyncCursor, listTrackedAddresses } from '../../db/queries.js';
+import { syncAddress, syncAll } from '../../ingestion/sync.js';
 
 let syncInProgress = false;
 let lastSyncResults: any = null;
@@ -35,7 +35,7 @@ export function syncRoutes(): Router {
 
   router.get('/status', (_req, res) => {
     const addresses = listTrackedAddresses();
-    const cursors = addresses.map(a => ({
+    const cursors = addresses.map((a) => ({
       address: a.address,
       alias: a.alias,
       ...getSyncCursor(a.address),

@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 // Load .env file if it exists (simple parser, no dependency needed)
 const envPath = resolve(process.cwd(), '.env');
@@ -22,7 +22,9 @@ if (existsSync(envPath)) {
 const projectRoot = resolve(new URL('..', import.meta.url).pathname);
 
 export const config = {
-  graphqlUrl: process.env.APTOS_GRAPHQL_URL || 'https://api.mainnet.aptoslabs.com/v1/graphql',
+  graphqlUrl:
+    process.env.APTOS_GRAPHQL_URL ||
+    'https://api.mainnet.aptoslabs.com/v1/graphql',
   dbPath: process.env.DB_PATH || resolve(projectRoot, 'aptos-tracker.db'),
   port: parseInt(process.env.PORT || '3000', 10),
   batchSize: 100,

@@ -1,5 +1,10 @@
 import { Router } from 'express';
-import { getLabel, upsertLabel, deleteLabel, listLabels } from '../../db/queries.js';
+import {
+  deleteLabel,
+  getLabel,
+  listLabels,
+  upsertLabel,
+} from '../../db/queries.js';
 
 export function labelRoutes(): Router {
   const router = Router();
@@ -19,11 +24,13 @@ export function labelRoutes(): Router {
   });
 
   router.put('/:address', (req, res) => {
-    const { label_type, label_name, is_boundary, source, confidence } = req.body;
+    const { label_type, label_name, is_boundary, source, confidence } =
+      req.body;
     upsertLabel(req.params.address, {
       label_type,
       label_name,
-      is_boundary: is_boundary !== undefined ? (is_boundary ? 1 : 0) : undefined,
+      is_boundary:
+        is_boundary !== undefined ? (is_boundary ? 1 : 0) : undefined,
       source: source || 'manual',
       confidence,
     });

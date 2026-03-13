@@ -1,10 +1,12 @@
 // Controls initialization and event handling
 
-function initControls() {
+function _initControls() {
   // Set default date range (last 30 days)
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  document.getElementById('date-from').value = thirtyDaysAgo.toISOString().slice(0, 10);
+  document.getElementById('date-from').value = thirtyDaysAgo
+    .toISOString()
+    .slice(0, 10);
   document.getElementById('date-to').value = now.toISOString().slice(0, 10);
 
   // Amount slider (log scale)
@@ -12,7 +14,7 @@ function initControls() {
   const display = document.getElementById('amount-display');
   slider.addEventListener('input', () => {
     const val = parseFloat(slider.value);
-    const amount = val === 0 ? 0 : Math.pow(10, val - 1);
+    const amount = val === 0 ? 0 : 10 ** (val - 1);
     display.textContent = amount < 1 ? amount.toFixed(2) : formatAmount(amount);
   });
 
@@ -23,8 +25,12 @@ function initControls() {
   document.getElementById('date-from').addEventListener('change', refreshView);
   document.getElementById('date-to').addEventListener('change', refreshView);
   slider.addEventListener('change', refreshView);
-  document.getElementById('asset-filter').addEventListener('change', refreshView);
-  document.getElementById('view-toggle').addEventListener('change', refreshView);
+  document
+    .getElementById('asset-filter')
+    .addEventListener('change', refreshView);
+  document
+    .getElementById('view-toggle')
+    .addEventListener('change', refreshView);
 
   // Sync button
   document.getElementById('sync-btn').addEventListener('click', async () => {
@@ -68,21 +74,21 @@ async function loadAssetTypes() {
       opt.textContent = parts[parts.length - 1] || asset.slice(0, 20);
       select.appendChild(opt);
     }
-  } catch (e) {
+  } catch (_e) {
     // No assets yet, that's fine
   }
 }
 
-function getFilterParams() {
+function _getFilterParams() {
   const from = document.getElementById('date-from').value;
   const to = document.getElementById('date-to').value;
   const sliderVal = parseFloat(document.getElementById('amount-slider').value);
-  const minAmount = sliderVal === 0 ? undefined : Math.pow(10, sliderVal - 1);
+  const minAmount = sliderVal === 0 ? undefined : 10 ** (sliderVal - 1);
   const assetType = document.getElementById('asset-filter').value || undefined;
 
   return {
     from: from || undefined,
-    to: to ? to + 'T23:59:59' : undefined,
+    to: to ? `${to}T23:59:59` : undefined,
     min_amount: minAmount,
     asset_type: assetType,
   };
@@ -91,7 +97,7 @@ function getFilterParams() {
 async function pollSyncStatus() {
   const statusEl = document.getElementById('sync-status');
   for (let i = 0; i < 120; i++) {
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, 2000));
     const status = await api.getSyncStatus();
     if (!status.syncing) {
       statusEl.textContent = 'Sync complete';

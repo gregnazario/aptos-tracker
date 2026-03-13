@@ -1,17 +1,20 @@
 #!/usr/bin/env node
 
+import { writeFileSync } from 'node:fs';
 import { Command } from 'commander';
-import { writeFileSync } from 'fs';
-import { config } from './config.js';
-import { getDb } from './db/connection.js';
-import { addTrackedAddress, removeTrackedAddress, listTrackedAddresses,
-  queryTransfers, getDistinctAssetTypes } from './db/queries.js';
-import { syncAddress, syncAll } from './ingestion/sync.js';
-import { setLabel, listLabels } from './labels/manager.js';
-import { seedKnownAddresses } from './labels/seed.js';
-import { detectBoundaries } from './labels/detector.js';
 import { createServer } from './api/server.js';
-import { closeDb } from './db/connection.js';
+import { config } from './config.js';
+import { closeDb, getDb } from './db/connection.js';
+import {
+  addTrackedAddress,
+  listTrackedAddresses,
+  queryTransfers,
+  removeTrackedAddress,
+} from './db/queries.js';
+import { syncAddress, syncAll } from './ingestion/sync.js';
+import { detectBoundaries } from './labels/detector.js';
+import { listLabels, setLabel } from './labels/manager.js';
+import { seedKnownAddresses } from './labels/seed.js';
 
 const program = new Command();
 
@@ -51,7 +54,9 @@ program
     getDb();
     const addresses = listTrackedAddresses();
     if (addresses.length === 0) {
-      console.log('No tracked addresses. Add one with: aptos-tracker add <address>');
+      console.log(
+        'No tracked addresses. Add one with: aptos-tracker add <address>',
+      );
     } else {
       console.log(`\n  Tracked Addresses (${addresses.length}):\n`);
       for (const a of addresses) {
@@ -69,40 +74,69 @@ program
   .description('Sync activities for tracked addresses')
   .option('--address <addr>', 'Sync only this address')
   .option('--full', 'Full re-sync from beginning', false)
-  .option('--auto-expand', 'Auto-track discovered non-boundary addresses', false)
-  .action(async (opts: { address?: string; full: boolean; autoExpand: boolean }) => {
-    getDb();
-    seedKnownAddresses();
+  .option(
+    '--auto-expand',
+    'Auto-track discovered non-boundary addresses',
+    false,
+  )
+  .action(
+    async (opts: { address?: string; full: boolean; autoExpand: boolean }) => {
+      getDb();
+      seedKnownAddresses();
 
-    try {
-      if (opts.address) {
-        const result = await syncAddress(opts.address, { full: opts.full, autoExpand: opts.autoExpand });
-        console.log(`\nDone. ${result.transfersFound} transfers found, ${result.boundariesHit.length} boundaries hit.`);
-      } else {
-        const results = await syncAll({ full: opts.full, autoExpand: opts.autoExpand });
-        const totalTransfers = results.reduce((sum, r) => sum + r.transfersFound, 0);
-        console.log(`\nDone. ${totalTransfers} total transfers across ${results.length} address(es).`);
+      try {
+        if (opts.address) {
+          const result = await syncAddress(opts.address, {
+            full: opts.full,
+            autoExpand: opts.autoExpand,
+          });
+          console.log(
+            `\nDone. ${result.transfersFound} transfers found, ${result.boundariesHit.length} boundaries hit.`,
+          );
+        } else {
+          const results = await syncAll({
+            full: opts.full,
+            autoExpand: opts.autoExpand,
+          });
+          const totalTransfers = results.reduce(
+            (sum, r) => sum + r.transfersFound,
+            0,
+          );
+          console.log(
+            `\nDone. ${totalTransfers} total transfers across ${results.length} address(es).`,
+          );
+        }
+      } catch (err: any) {
+        console.error(`Sync error: ${err.message}`);
+        process.exit(1);
+      } finally {
+        closeDb();
       }
-    } catch (err: any) {
-      console.error(`Sync error: ${err.message}`);
-      process.exit(1);
-    } finally {
-      closeDb();
-    }
-  });
+    },
+  );
 
 program
   .command('label <address>')
   .description('Label an address')
-  .requiredOption('--type <type>', 'Label type: dex_pool, exchange, bridge, contract, user')
+  .requiredOption(
+    '--type <type>',
+    'Label type: dex_pool, exchange, bridge, contract, user',
+  )
   .option('--name <name>', 'Label name (e.g., "LiquidSwap")')
   .option('--boundary', 'Mark as boundary (stops expansion)', false)
-  .action((address: string, opts: { type: string; name?: string; boundary: boolean }) => {
-    getDb();
-    setLabel(address, opts.type, opts.name, opts.boundary);
-    console.log(`Labeled ${address} as ${opts.type}${opts.name ? ` (${opts.name})` : ''}${opts.boundary ? ' [boundary]' : ''}`);
-    closeDb();
-  });
+  .action(
+    (
+      address: string,
+      opts: { type: string; name?: string; boundary: boolean },
+    ) => {
+      getDb();
+      setLabel(address, opts.type, opts.name, opts.boundary);
+      console.log(
+        `Labeled ${address} as ${opts.type}${opts.name ? ` (${opts.name})` : ''}${opts.boundary ? ' [boundary]' : ''}`,
+      );
+      closeDb();
+    },
+  );
 
 program
   .command('labels')
@@ -118,7 +152,9 @@ program
         const boundary = l.is_boundary ? ' [BOUNDARY]' : '';
         const name = l.label_name ? ` "${l.label_name}"` : '';
         const conf = l.confidence < 1 ? ` (confidence: ${l.confidence})` : '';
-        console.log(`  ${l.address.slice(0, 14)}...  ${l.label_type}${name}${boundary}${conf}  [${l.source}]`);
+        console.log(
+          `  ${l.address.slice(0, 14)}...  ${l.label_type}${name}${boundary}${conf}  [${l.source}]`,
+        );
       }
       console.log();
     }
@@ -137,7 +173,9 @@ program
       } else {
         console.log(`\nDetected ${results.length} address(es):\n`);
         for (const r of results) {
-          console.log(`  ${r.address.slice(0, 14)}...  ${r.label_type} (confidence: ${r.confidence}) — ${r.reason}`);
+          console.log(
+            `  ${r.address.slice(0, 14)}...  ${r.label_type} (confidence: ${r.confidence}) — ${r.reason}`,
+          );
         }
       }
     } finally {
@@ -173,10 +211,14 @@ program
       return;
     }
 
-    const header = 'sender,receiver,amount,amount_decimal,asset_type,asset_name,token_standard,transaction_version,timestamp\n';
-    const rows = transfers.map(t =>
-      `${t.sender},${t.receiver},${t.amount},${t.amount_decimal},${t.asset_type},${t.asset_name || ''},${t.token_standard || ''},${t.transaction_version},${t.timestamp}`
-    ).join('\n');
+    const header =
+      'sender,receiver,amount,amount_decimal,asset_type,asset_name,token_standard,transaction_version,timestamp\n';
+    const rows = transfers
+      .map(
+        (t) =>
+          `${t.sender},${t.receiver},${t.amount},${t.amount_decimal},${t.asset_type},${t.asset_name || ''},${t.token_standard || ''},${t.transaction_version},${t.timestamp}`,
+      )
+      .join('\n');
 
     writeFileSync(opts.output, header + rows);
     console.log(`Exported ${transfers.length} transfers to ${opts.output}`);

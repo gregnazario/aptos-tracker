@@ -1,8 +1,15 @@
-import { listTrackedAddresses, getSyncCursor, updateSyncCursor, setSyncStatus,
-  insertTransfersBatch, insertRawActivitiesBatch, addTrackedAddress } from '../db/queries.js';
-import { fetchAllActivities } from './fetcher.js';
-import { correlateActivities } from './correlator.js';
+import {
+  addTrackedAddress,
+  getSyncCursor,
+  insertRawActivitiesBatch,
+  insertTransfersBatch,
+  listTrackedAddresses,
+  setSyncStatus,
+  updateSyncCursor,
+} from '../db/queries.js';
 import { checkBoundaries } from './boundary.js';
+import { correlateActivities } from './correlator.js';
+import { fetchAllActivities } from './fetcher.js';
 
 export interface SyncResult {
   address: string;
@@ -17,19 +24,25 @@ export interface SyncResult {
  */
 export async function syncAddress(
   address: string,
-  options: { autoExpand?: boolean; full?: boolean } = {}
+  options: { autoExpand?: boolean; full?: boolean } = {},
 ): Promise<SyncResult> {
   const cursor = getSyncCursor(address);
   const afterVersion = options.full ? 0 : cursor.last_version;
 
   setSyncStatus(address, 'syncing');
-  console.log(`  Syncing ${address.slice(0, 10)}... from version ${afterVersion}`);
+  console.log(
+    `  Syncing ${address.slice(0, 10)}... from version ${afterVersion}`,
+  );
 
   try {
     // Fetch all activities with full transaction context
-    const activities = await fetchAllActivities(address, afterVersion, (count) => {
-      process.stdout.write(`\r  Fetched ${count} activities...`);
-    });
+    const activities = await fetchAllActivities(
+      address,
+      afterVersion,
+      (count) => {
+        process.stdout.write(`\r  Fetched ${count} activities...`);
+      },
+    );
 
     if (activities.length > 0) {
       console.log(`\n  Got ${activities.length} context activities`);
@@ -51,12 +64,17 @@ export async function syncAddress(
 
     // Update cursor to max version
     if (activities.length > 0) {
-      const maxVersion = Math.max(...activities.map(a => a.transaction_version));
+      const maxVersion = Math.max(
+        ...activities.map((a) => a.transaction_version),
+      );
       updateSyncCursor(address, maxVersion);
     }
 
     // Check boundaries
-    const { boundaries, nonBoundaries } = await checkBoundaries(transfers, address);
+    const { boundaries, nonBoundaries } = await checkBoundaries(
+      transfers,
+      address,
+    );
 
     // Auto-expand if requested
     if (options.autoExpand) {
@@ -88,13 +106,15 @@ export async function syncAddress(
  * Sync all tracked addresses.
  */
 export async function syncAll(
-  options: { autoExpand?: boolean; full?: boolean } = {}
+  options: { autoExpand?: boolean; full?: boolean } = {},
 ): Promise<SyncResult[]> {
   const addresses = listTrackedAddresses();
-  const active = addresses.filter(a => a.is_active);
+  const active = addresses.filter((a) => a.is_active);
 
   if (active.length === 0) {
-    console.log('No tracked addresses. Add one with: aptos-tracker add <address>');
+    console.log(
+      'No tracked addresses. Add one with: aptos-tracker add <address>',
+    );
     return [];
   }
 
@@ -106,7 +126,9 @@ export async function syncAll(
       const result = await syncAddress(addr.address, options);
       results.push(result);
     } catch (err: any) {
-      console.error(`  Error syncing ${addr.address.slice(0, 10)}...: ${err.message}`);
+      console.error(
+        `  Error syncing ${addr.address.slice(0, 10)}...: ${err.message}`,
+      );
     }
   }
 

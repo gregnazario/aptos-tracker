@@ -1,6 +1,6 @@
-import type { RawActivity } from './client.js';
 import type { Transfer } from '../db/queries.js';
 import { getAssetMeta } from '../db/queries.js';
+import type { RawActivity } from './client.js';
 
 /**
  * Correlate raw activities into Transfer records.
@@ -27,12 +27,8 @@ export function correlateActivities(activities: RawActivity[]): Transfer[] {
   const transfers: Transfer[] = [];
 
   for (const [, group] of groups) {
-    const withdrawals = group.filter(a =>
-      a.type.includes('Withdraw')
-    );
-    const deposits = group.filter(a =>
-      a.type.includes('Deposit')
-    );
+    const withdrawals = group.filter((a) => a.type.includes('Withdraw'));
+    const deposits = group.filter((a) => a.type.includes('Deposit'));
 
     // Match withdrawals to deposits by amount
     const usedDeposits = new Set<number>();
@@ -46,7 +42,7 @@ export function correlateActivities(activities: RawActivity[]): Transfer[] {
         if (w.amount === d.amount && w.owner_address !== d.owner_address) {
           const meta = getAssetMeta(w.asset_type);
           const decimals = meta?.decimals ?? 8;
-          const amountDecimal = parseFloat(w.amount) / Math.pow(10, decimals);
+          const amountDecimal = parseFloat(w.amount) / 10 ** decimals;
 
           transfers.push({
             sender: w.owner_address,
@@ -75,7 +71,10 @@ export function correlateActivities(activities: RawActivity[]): Transfer[] {
  * e.g. "0x1::aptos_coin::AptosCoin" → "APT"
  */
 function extractAssetName(assetType: string): string {
-  if (assetType.includes('aptos_coin::AptosCoin') || assetType === '0x1::aptos_coin::AptosCoin') {
+  if (
+    assetType.includes('aptos_coin::AptosCoin') ||
+    assetType === '0x1::aptos_coin::AptosCoin'
+  ) {
     return 'APT';
   }
   // Try to get the last segment

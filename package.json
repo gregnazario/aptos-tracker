@@ -11,7 +11,10 @@
     "dev": "tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "serve": "tsx src/index.ts serve"
+    "serve": "tsx src/index.ts serve",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check --write ."
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
@@ -21,6 +24,7 @@
     "graphql-request": "^7.1.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.6",
     "@types/better-sqlite3": "^7.6.12",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.0",

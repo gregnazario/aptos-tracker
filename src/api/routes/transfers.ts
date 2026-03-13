@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { queryTransfers, getDistinctAssetTypes } from '../../db/queries.js';
+import { getDistinctAssetTypes, queryTransfers } from '../../db/queries.js';
 
 export function transferRoutes(): Router {
   const router = Router();
 
   router.get('/', (req, res) => {
-    const { address, from, to, min_amount, asset_type, limit, offset } = req.query;
+    const { address, from, to, min_amount, asset_type, limit, offset } =
+      req.query;
     const transfers = queryTransfers({
       address: address as string,
       from: from as string,
