@@ -1,6 +1,7 @@
 aptos-tracker.db-shm
 node_modules/
 dist/
+public/js/bundle.js
 .playwright-mcp/
 *.db
 *.db-journal

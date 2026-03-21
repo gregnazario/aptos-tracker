@@ -1,13 +1,21 @@
-// Main application controller
+import * as d3 from 'd3';
+import { api, type TrackedAddress } from './api-client.js';
+import { initContextMenu } from './context-menu.js';
+import { getFilterParams, initControls } from './controls.js';
+import { renderForce } from './force-view.js';
+import { renderSankey } from './sankey-view.js';
 
-let _currentView = 'sankey';
+let currentView = 'sankey';
 
-async function refreshView() {
+async function refreshView(): Promise<void> {
   const params = getFilterParams();
-  const viewType = document.getElementById('view-toggle').value;
-  _currentView = viewType;
+  const viewType = (document.getElementById('view-toggle') as HTMLSelectElement)
+    .value;
+  currentView = viewType;
 
-  const container = document.getElementById('chart');
+  const container = document.getElementById(
+    'chart',
+  ) as unknown as SVGSVGElement;
 
   try {
     if (viewType === 'sankey') {
@@ -21,7 +29,9 @@ async function refreshView() {
     console.error('Failed to load graph data:', e);
     const svg = d3.select(container);
     svg.selectAll('*').remove();
-    const rect = svg.node().parentNode.getBoundingClientRect();
+    const rect = (
+      svg.node()!.parentNode as HTMLElement
+    ).getBoundingClientRect();
     svg
       .append('text')
       .attr('x', rect.width / 2)
@@ -33,7 +43,7 @@ async function refreshView() {
 }
 
 // Handle window resize
-let resizeTimeout;
+let resizeTimeout: ReturnType<typeof setTimeout>;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimeout);
   resizeTimeout = setTimeout(refreshView, 250);
@@ -41,21 +51,21 @@ window.addEventListener('resize', () => {
 
 // --- Address Panel ---
 
-function openAddressPanel() {
-  document.getElementById('address-panel').classList.remove('hidden');
+function openAddressPanel(): void {
+  document.getElementById('address-panel')!.classList.remove('hidden');
   loadAddressList();
 }
 
-function closeAddressPanel() {
-  document.getElementById('address-panel').classList.add('hidden');
+function closeAddressPanel(): void {
+  document.getElementById('address-panel')!.classList.add('hidden');
 }
 
-async function loadAddressList() {
-  const list = document.getElementById('address-list');
+async function loadAddressList(): Promise<void> {
+  const list = document.getElementById('address-list')!;
   list.textContent = '';
 
   try {
-    const addresses = await api.get('/addresses');
+    const addresses = (await api.get('/addresses')) as TrackedAddress[];
     if (addresses.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'address-empty';
@@ -129,7 +139,7 @@ async function loadAddressList() {
   }
 }
 
-function startAliasEdit(aliasRow, addr) {
+function startAliasEdit(aliasRow: HTMLElement, addr: TrackedAddress): void {
   aliasRow.textContent = '';
 
   const input = document.createElement('input');
@@ -158,7 +168,10 @@ function startAliasEdit(aliasRow, addr) {
   });
 }
 
-async function saveAlias(input, addr) {
+async function saveAlias(
+  input: HTMLInputElement,
+  addr: TrackedAddress,
+): Promise<void> {
   const newAlias = input.value.trim();
   try {
     await api.updateAddressAlias(addr.address, newAlias);
@@ -169,17 +182,13 @@ async function saveAlias(input, addr) {
   }
 }
 
-async function handleAddAddress() {
-  const addrInput = document.getElementById('new-address');
-  const aliasInput = document.getElementById('new-alias');
+async function handleAddAddress(): Promise<void> {
+  const addrInput = document.getElementById('new-address') as HTMLInputElement;
+  const aliasInput = document.getElementById('new-alias') as HTMLInputElement;
   const address = addrInput.value.trim();
   const alias = aliasInput.value.trim() || undefined;
 
   if (!address) return;
-  if (!address.startsWith('0x')) {
-    addrInput.style.borderColor = '#f85149';
-    return;
-  }
 
   addrInput.style.borderColor = '';
   try {
@@ -188,26 +197,60 @@ async function handleAddAddress() {
     aliasInput.value = '';
     loadAddressList();
   } catch (e) {
+    addrInput.style.borderColor = '#f85149';
     console.error('Failed to add address:', e);
   }
 }
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-  initControls();
+  initControls(refreshView);
+  initContextMenu(refreshView);
   refreshView();
 
   // Address panel
+  // Export / Import labels
   document
-    .getElementById('manage-addresses-btn')
+    .getElementById('export-labels-btn')!
+    .addEventListener('click', async () => {
+      try {
+        await api.exportLabels();
+      } catch (e) {
+        console.error('Export failed:', e);
+      }
+    });
+
+  const importFileInput = document.getElementById('import-file-input') as HTMLInputElement;
+  document
+    .getElementById('import-labels-btn')!
+    .addEventListener('click', () => importFileInput.click());
+  importFileInput.addEventListener('change', async () => {
+    const file = importFileInput.files?.[0];
+    if (!file) return;
+    try {
+      const counts = await api.importLabels(file);
+      alert(`Imported ${counts.labels} labels and ${counts.categories} category rules.`);
+      refreshView();
+    } catch (e) {
+      console.error('Import failed:', e);
+      alert('Import failed. Check console for details.');
+    }
+    importFileInput.value = '';
+  });
+
+  document
+    .getElementById('manage-addresses-btn')!
     .addEventListener('click', openAddressPanel);
   document
-    .getElementById('close-panel-btn')
+    .getElementById('close-panel-btn')!
     .addEventListener('click', closeAddressPanel);
   document
-    .getElementById('add-address-btn')
+    .getElementById('add-address-btn')!
     .addEventListener('click', handleAddAddress);
-  document.getElementById('new-address').addEventListener('keydown', (e) => {
+  document.getElementById('new-address')!.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleAddAddress();
   });
 });
+
+// Suppress unused variable warnings — these are used indirectly
+void currentView;

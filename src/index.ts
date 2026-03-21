@@ -4,6 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { Command } from 'commander';
 import { createServer } from './api/server.js';
 import { config } from './config.js';
+import { loadTokenRegistry } from './tokens/registry.js';
 import { closeDb, getDb } from './db/connection.js';
 import {
   addTrackedAddress,
@@ -15,6 +16,7 @@ import { syncAddress, syncAll } from './ingestion/sync.js';
 import { detectBoundaries } from './labels/detector.js';
 import { listLabels, setLabel } from './labels/manager.js';
 import { seedKnownAddresses } from './labels/seed.js';
+import { seedEntryFunctionCategories } from './tax/seed.js';
 
 const program = new Command();
 
@@ -187,9 +189,11 @@ program
   .command('serve')
   .description('Start the web UI server')
   .option('--port <port>', 'Port number', String(config.port))
-  .action((opts: { port: string }) => {
+  .action(async (opts: { port: string }) => {
     getDb();
     seedKnownAddresses();
+    seedEntryFunctionCategories();
+    await loadTokenRegistry();
 
     const port = parseInt(opts.port, 10);
     const app = createServer();

@@ -5,14 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Aptos Fund Flow Tracker</title>
   <link rel="stylesheet" href="/css/styles.css">
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
 </head>
 <body>
   <header>
     <h1>Aptos Fund Flow Tracker</h1>
     <div class="header-right">
       <div id="sync-status"></div>
+      <button id="export-labels-btn">Export Labels</button>
+      <button id="import-labels-btn">Import Labels</button>
+      <input type="file" id="import-file-input" accept=".json" class="hidden">
       <button id="manage-addresses-btn">Addresses</button>
     </div>
   </header>
@@ -23,7 +24,7 @@
       <button id="close-panel-btn">&times;</button>
     </div>
     <div class="panel-add-form">
-      <input type="text" id="new-address" placeholder="0x... address">
+      <input type="text" id="new-address" placeholder="0x... or name.apt">
       <input type="text" id="new-alias" placeholder="Alias (optional)">
       <button id="add-address-btn">Add</button>
     </div>
@@ -42,11 +43,23 @@
     <div class="control-group">
       <label>Min Amount
         <input type="range" id="amount-slider" min="0" max="10" step="0.1" value="0">
-        <span id="amount-display">0</span>
+        <input type="number" id="min-amount" min="0" step="any" placeholder="0">
       </label>
       <label>Asset
         <select id="asset-filter">
           <option value="">All Assets</option>
+        </select>
+      </label>
+      <label>Direction
+        <select id="direction-filter">
+          <option value="">All</option>
+          <option value="inbound">Inbound</option>
+          <option value="outbound">Outbound</option>
+        </select>
+      </label>
+      <label>Tax Category
+        <select id="tax-category-filter">
+          <option value="">All Categories</option>
         </select>
       </label>
     </div>
@@ -74,21 +87,19 @@
     <div class="menu-item" data-action="label-exchange">Mark as Exchange</div>
     <div class="menu-item" data-action="label-bridge">Mark as Bridge</div>
     <div class="menu-item" data-action="label-user">Mark as User</div>
+    <div class="menu-item" data-action="label-staking">Mark as Staking Pool</div>
+    <div class="menu-item" data-action="label-lending">Mark as Lending Pool</div>
     <div class="menu-separator"></div>
     <div class="menu-item" data-action="toggle-boundary">Toggle Boundary</div>
     <div class="menu-item" data-action="set-alias">Set Custom Label...</div>
     <div class="menu-separator"></div>
     <div class="menu-item" data-action="copy-address">Copy Address</div>
+    <div class="menu-item" data-action="view-explorer">View in Explorer</div>
     <div class="menu-item" data-action="track">Track This Address</div>
   </div>
 
   <div id="tooltip" class="hidden"></div>
 
-  <script src="/js/api-client.js"></script>
-  <script src="/js/sankey-view.js"></script>
-  <script src="/js/force-view.js"></script>
-  <script src="/js/context-menu.js"></script>
-  <script src="/js/controls.js"></script>
-  <script src="/js/app.js"></script>
+  <script src="/js/bundle.js"></script>
 </body>
 </html>

@@ -25,6 +25,7 @@ export const config = {
   graphqlUrl:
     process.env.APTOS_GRAPHQL_URL ||
     'https://api.mainnet.aptoslabs.com/v1/graphql',
+  apiKey: process.env.APTOS_API_KEY || '',
   dbPath: process.env.DB_PATH || resolve(projectRoot, 'aptos-tracker.db'),
   port: parseInt(process.env.PORT || '3000', 10),
   batchSize: 100,

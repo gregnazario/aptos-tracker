@@ -1,8 +1,19 @@
-function _renderForce(container, data) {
+import * as d3 from 'd3';
+import type { ForceData, ForceLink, ForceNode } from './api-client.js';
+import {
+  hideTooltip,
+  showContextMenu,
+  showTooltip,
+  type TooltipPart,
+} from './context-menu.js';
+import { formatAmount, getAssetColor, getNodeColor } from './sankey-view.js';
+import { showTxModal } from './tx-modal.js';
+
+export function renderForce(container: SVGSVGElement, data: ForceData): void {
   const svg = d3.select(container);
   svg.selectAll('*').remove();
 
-  const rect = svg.node().parentNode.getBoundingClientRect();
+  const rect = (svg.node()!.parentNode as HTMLElement).getBoundingClientRect();
   const width = rect.width;
   const height = rect.height;
 
@@ -17,9 +28,6 @@ function _renderForce(container, data) {
     return;
   }
 
-  // Build node map for link references
-  const _nodeMap = new Map(data.nodes.map((n) => [n.id, n]));
-
   // Scale for node radius based on volume
   const maxVol = Math.max(...data.nodes.map((n) => n.total_volume), 1);
   const radiusScale = d3.scaleSqrt().domain([0, maxVol]).range([5, 30]);
@@ -31,45 +39,61 @@ function _renderForce(container, data) {
   // Create zoom behavior
   const g = svg.append('g');
   const zoom = d3
-    .zoom()
+    .zoom<SVGSVGElement, unknown>()
     .scaleExtent([0.1, 8])
     .on('zoom', (event) => g.attr('transform', event.transform));
   svg.call(zoom);
 
   // Build simulation
   const simulation = d3
-    .forceSimulation(data.nodes)
+    .forceSimulation(data.nodes as d3.SimulationNodeDatum[])
     .force(
       'link',
       d3
-        .forceLink(data.links)
-        .id((d) => d.id)
+        .forceLink(
+          data.links as d3.SimulationLinkDatum<d3.SimulationNodeDatum>[],
+        )
+        .id((d) => (d as ForceNode).id)
         .distance(100),
     )
     .force('charge', d3.forceManyBody().strength(-200))
     .force('center', d3.forceCenter(width / 2, height / 2))
     .force(
       'collision',
-      d3.forceCollide().radius((d) => radiusScale(d.total_volume) + 5),
+      d3
+        .forceCollide()
+        .radius((d) => radiusScale((d as ForceNode).total_volume) + 5),
     );
 
   // Links
   const link = g
     .append('g')
-    .selectAll('.force-link')
+    .selectAll<SVGLineElement, ForceLink>('.force-link')
     .data(data.links)
     .join('line')
     .attr('class', 'force-link')
     .attr('stroke', (d) => getAssetColor(d.asset_name))
     .attr('stroke-width', (d) => linkWidthScale(d.total_amount))
-    .on('mouseover', (event, d) => {
+    .on('mouseover', (event: MouseEvent, d) => {
       showTooltip(event, [
         { class: 'tip-label', text: d.asset_name || d.asset_type },
         { class: 'tip-amount', text: formatAmount(d.total_amount) },
         { class: 'tip-detail', text: `${d.transfer_count} transfer(s)` },
       ]);
     })
-    .on('mouseout', hideTooltip);
+    .on('mouseout', hideTooltip)
+    .on('contextmenu', (event: MouseEvent, d) => {
+      event.preventDefault();
+      const source = d.source as ForceNode;
+      const target = d.target as ForceNode;
+      showTxModal(
+        source.id,
+        target.id,
+        source.name || `${source.id.slice(0, 10)}...`,
+        target.name || `${target.id.slice(0, 10)}...`,
+        d.asset_type,
+      );
+    });
 
   // Arrow markers
   svg
@@ -93,14 +117,14 @@ function _renderForce(container, data) {
   // Nodes
   const node = g
     .append('g')
-    .selectAll('.force-node')
+    .selectAll<SVGCircleElement, ForceNode>('.force-node')
     .data(data.nodes)
     .join('circle')
     .attr('class', (d) => `force-node ${d.is_boundary ? 'boundary-node' : ''}`)
     .attr('r', (d) => radiusScale(d.total_volume))
     .attr('fill', (d) => getNodeColor(d.label_type))
-    .on('mouseover', (event, d) => {
-      const parts = [
+    .on('mouseover', (event: MouseEvent, d) => {
+      const parts: TooltipPart[] = [
         { class: 'tip-label', text: d.name || `${d.id.slice(0, 10)}...` },
         { class: 'tip-detail', text: d.id },
         {
@@ -121,33 +145,35 @@ function _renderForce(container, data) {
       showTooltip(event, parts);
     })
     .on('mouseout', hideTooltip)
-    .on('contextmenu', (event, d) => {
+    .on('contextmenu', (event: MouseEvent, d) => {
       event.preventDefault();
       showContextMenu(event, d.id, d);
-    })
-    .call(
-      d3
-        .drag()
-        .on('start', (event, d) => {
-          if (!event.active) simulation.alphaTarget(0.3).restart();
-          d.fx = d.x;
-          d.fy = d.y;
-        })
-        .on('drag', (event, d) => {
-          d.fx = event.x;
-          d.fy = event.y;
-        })
-        .on('end', (event, d) => {
-          if (!event.active) simulation.alphaTarget(0);
-          d.fx = null;
-          d.fy = null;
-        }),
-    );
+    });
+
+  // Drag behavior (applied separately to avoid type mismatch with .call())
+  node.call(
+    d3
+      .drag<SVGCircleElement, ForceNode>()
+      .on('start', (event, d) => {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      })
+      .on('drag', (event, d) => {
+        d.fx = event.x;
+        d.fy = event.y;
+      })
+      .on('end', (event, d) => {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      }),
+  );
 
   // Labels
   const label = g
     .append('g')
-    .selectAll('.force-label')
+    .selectAll<SVGTextElement, ForceNode>('.force-label')
     .data(data.nodes)
     .join('text')
     .attr('class', 'force-label')
@@ -157,13 +183,13 @@ function _renderForce(container, data) {
 
   simulation.on('tick', () => {
     link
-      .attr('x1', (d) => d.source.x)
-      .attr('y1', (d) => d.source.y)
-      .attr('x2', (d) => d.target.x)
-      .attr('y2', (d) => d.target.y);
+      .attr('x1', (d) => (d.source as ForceNode).x ?? 0)
+      .attr('y1', (d) => (d.source as ForceNode).y ?? 0)
+      .attr('x2', (d) => (d.target as ForceNode).x ?? 0)
+      .attr('y2', (d) => (d.target as ForceNode).y ?? 0);
 
-    node.attr('cx', (d) => d.x).attr('cy', (d) => d.y);
+    node.attr('cx', (d) => d.x ?? 0).attr('cy', (d) => d.y ?? 0);
 
-    label.attr('x', (d) => d.x).attr('y', (d) => d.y);
+    label.attr('x', (d) => d.x ?? 0).attr('y', (d) => d.y ?? 0);
   });
 }

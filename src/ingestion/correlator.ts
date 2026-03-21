@@ -1,5 +1,4 @@
-import type { Transfer } from '../db/queries.js';
-import { getAssetMeta } from '../db/queries.js';
+import { type Transfer, getAssetMeta } from '../db/queries.js';
 import type { RawActivity } from './client.js';
 
 /**
@@ -9,7 +8,10 @@ import type { RawActivity } from './client.js';
  * Within each group, match Withdraw events to Deposit events with the same amount.
  * A Withdraw from address A + Deposit to address B of the same amount = transfer A → B.
  */
-export function correlateActivities(activities: RawActivity[]): Transfer[] {
+export function correlateActivities(
+  activities: RawActivity[],
+  entryFunctions?: Map<number, string>,
+): Transfer[] {
   // Group by transaction_version + asset_type
   const groups = new Map<string, RawActivity[]>();
 
@@ -50,11 +52,12 @@ export function correlateActivities(activities: RawActivity[]): Transfer[] {
             amount: w.amount,
             amount_decimal: amountDecimal,
             asset_type: w.asset_type,
-            asset_name: meta?.symbol ?? extractAssetName(w.asset_type),
+            asset_name: w.asset_type,
             token_standard: w.token_standard,
             transaction_version: w.transaction_version,
             event_index: w.event_index,
             timestamp: w.transaction_timestamp,
+            entry_function: entryFunctions?.get(w.transaction_version) ?? null,
           });
           usedDeposits.add(i);
           break;
@@ -66,18 +69,3 @@ export function correlateActivities(activities: RawActivity[]): Transfer[] {
   return transfers;
 }
 
-/**
- * Extract a short asset name from the full asset_type string.
- * e.g. "0x1::aptos_coin::AptosCoin" → "APT"
- */
-function extractAssetName(assetType: string): string {
-  if (
-    assetType.includes('aptos_coin::AptosCoin') ||
-    assetType === '0x1::aptos_coin::AptosCoin'
-  ) {
-    return 'APT';
-  }
-  // Try to get the last segment
-  const parts = assetType.split('::');
-  return parts[parts.length - 1] || assetType.slice(0, 10);
-}

@@ -2,20 +2,27 @@ import { config } from '../config.js';
 import {
   fetchActivitiesByVersions,
   fetchActivitiesForAddress,
+  fetchEntryFunctions,
   type RawActivity,
 } from './client.js';
+
+export interface FetchResult {
+  activities: RawActivity[];
+  entryFunctions: Map<number, string>;
+}
 
 /**
  * Fetch all activities for an address starting from afterVersion.
  * Handles pagination by advancing the version cursor.
- * Returns both the owner's activities and the full transaction context.
+ * Returns both the full transaction context activities and entry functions.
  */
 export async function fetchAllActivities(
   address: string,
   afterVersion: number,
   onBatch?: (count: number) => void,
-): Promise<RawActivity[]> {
+): Promise<FetchResult> {
   const allContextActivities: RawActivity[] = [];
+  const allEntryFunctions = new Map<number, string>();
   let currentVersion = afterVersion;
   let totalFetched = 0;
 
@@ -35,8 +42,13 @@ export async function fetchAllActivities(
     // Step 2: Get unique transaction versions and fetch full context
     const versions = [...new Set(batch.map((a) => a.transaction_version))];
     const contextActivities = await fetchActivitiesByVersions(versions);
-
     allContextActivities.push(...contextActivities);
+
+    // Step 3: Fetch entry functions for these versions
+    const entryFns = await fetchEntryFunctions(versions);
+    for (const [version, fn] of entryFns) {
+      allEntryFunctions.set(version, fn);
+    }
 
     // Advance cursor
     currentVersion = Math.max(...batch.map((a) => a.transaction_version));
@@ -45,5 +57,5 @@ export async function fetchAllActivities(
     if (batch.length < config.batchSize) break;
   }
 
-  return allContextActivities;
+  return { activities: allContextActivities, entryFunctions: allEntryFunctions };
 }

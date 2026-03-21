@@ -31,6 +31,7 @@ export function initializeDatabase(db: Database.Database): void {
       transaction_version INTEGER NOT NULL,
       event_index INTEGER,
       timestamp TEXT NOT NULL,
+      entry_function TEXT,
       UNIQUE(transaction_version, sender, receiver, asset_type, amount)
     );
 
@@ -75,5 +76,22 @@ export function initializeDatabase(db: Database.Database): void {
 
     CREATE INDEX IF NOT EXISTS idx_raw_activities_version ON raw_activities(transaction_version);
     CREATE INDEX IF NOT EXISTS idx_raw_activities_owner ON raw_activities(owner_address);
+
+    CREATE TABLE IF NOT EXISTS entry_function_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pattern TEXT NOT NULL UNIQUE,
+      match_type TEXT NOT NULL DEFAULT 'exact',
+      tax_category TEXT NOT NULL,
+      label TEXT,
+      source TEXT NOT NULL DEFAULT 'manual',
+      confidence REAL NOT NULL DEFAULT 1.0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
+
+  // Migration: add entry_function column if missing (existing DBs)
+  const cols = db.pragma('table_info(transfers)') as { name: string }[];
+  if (!cols.some((c) => c.name === 'entry_function')) {
+    db.exec('ALTER TABLE transfers ADD COLUMN entry_function TEXT');
+  }
 }

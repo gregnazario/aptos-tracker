@@ -20,6 +20,7 @@ export function addressRoutes(): Router {
       res.status(400).json({ error: 'address is required' });
       return;
     }
+
     addTrackedAddress(address, alias);
     res.json({ ok: true, address, alias });
   });

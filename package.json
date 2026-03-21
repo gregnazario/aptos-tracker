@@ -9,16 +9,20 @@
   },
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsc",
+    "build": "pnpm build:frontend && tsc",
+    "build:frontend": "esbuild src/frontend/app.ts --bundle --minify --outfile=public/js/bundle.js",
     "start": "node dist/index.js",
-    "serve": "tsx src/index.ts serve",
+    "serve": "pnpm build:frontend && tsx src/index.ts serve",
     "format": "biome format --write .",
     "lint": "biome lint .",
-    "check": "biome check --write ."
+    "check": "biome check --write .",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.frontend.json"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
     "commander": "^12.1.0",
+    "d3": "^7.9.0",
+    "d3-sankey": "^0.12.3",
     "express": "^4.21.0",
     "graphql": "^16.9.0",
     "graphql-request": "^7.1.0"
@@ -26,8 +30,11 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.6",
     "@types/better-sqlite3": "^7.6.12",
+    "@types/d3": "^7.4.3",
+    "@types/d3-sankey": "^0.12.5",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.0",
+    "esbuild": "^0.27.4",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }

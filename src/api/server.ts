@@ -5,6 +5,7 @@ import { addressRoutes } from './routes/addresses.js';
 import { graphRoutes } from './routes/graph.js';
 import { labelRoutes } from './routes/labels.js';
 import { syncRoutes } from './routes/sync.js';
+import { taxRoutes } from './routes/tax.js';
 import { transferRoutes } from './routes/transfers.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -24,6 +25,7 @@ export function createServer(): express.Express {
   app.use('/api/labels', labelRoutes());
   app.use('/api/graph', graphRoutes());
   app.use('/api/sync', syncRoutes());
+  app.use('/api/tax', taxRoutes());
 
   // SPA fallback
   app.get('*', (_req, res) => {

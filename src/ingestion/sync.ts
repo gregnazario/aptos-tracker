@@ -8,6 +8,7 @@ import {
   updateSyncCursor,
 } from '../db/queries.js';
 import { checkBoundaries } from './boundary.js';
+import { resetChunkSize } from './client.js';
 import { correlateActivities } from './correlator.js';
 import { fetchAllActivities } from './fetcher.js';
 
@@ -35,8 +36,8 @@ export async function syncAddress(
   );
 
   try {
-    // Fetch all activities with full transaction context
-    const activities = await fetchAllActivities(
+    // Fetch all activities with full transaction context + entry functions
+    const { activities, entryFunctions } = await fetchAllActivities(
       address,
       afterVersion,
       (count) => {
@@ -45,7 +46,7 @@ export async function syncAddress(
     );
 
     if (activities.length > 0) {
-      console.log(`\n  Got ${activities.length} context activities`);
+      console.log(`\n  Got ${activities.length} context activities, ${entryFunctions.size} entry functions`);
     } else {
       console.log('  No new activities');
     }
@@ -53,8 +54,8 @@ export async function syncAddress(
     // Store raw activities
     insertRawActivitiesBatch(activities);
 
-    // Correlate into transfers
-    const transfers = correlateActivities(activities);
+    // Correlate into transfers (with entry functions)
+    const transfers = correlateActivities(activities, entryFunctions);
     console.log(`  Correlated ${transfers.length} transfers`);
 
     // Store transfers
@@ -118,6 +119,7 @@ export async function syncAll(
     return [];
   }
 
+  resetChunkSize();
   console.log(`Syncing ${active.length} address(es)...\n`);
 
   const results: SyncResult[] = [];

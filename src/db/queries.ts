@@ -85,14 +85,15 @@ export interface Transfer {
   transaction_version: number;
   event_index?: number;
   timestamp: string;
+  entry_function?: string | null;
 }
 
 export function insertTransfer(t: Transfer): void {
   getDb()
     .prepare(`
     INSERT OR IGNORE INTO transfers
-      (sender, receiver, amount, amount_decimal, asset_type, asset_name, token_standard, transaction_version, event_index, timestamp)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (sender, receiver, amount, amount_decimal, asset_type, asset_name, token_standard, transaction_version, event_index, timestamp, entry_function)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
     .run(
       t.sender,
@@ -105,6 +106,7 @@ export function insertTransfer(t: Transfer): void {
       t.transaction_version,
       t.event_index ?? null,
       t.timestamp,
+      t.entry_function ?? null,
     );
 }
 
@@ -112,8 +114,8 @@ export function insertTransfersBatch(transfers: Transfer[]): void {
   const db = getDb();
   const stmt = db.prepare(`
     INSERT OR IGNORE INTO transfers
-      (sender, receiver, amount, amount_decimal, asset_type, asset_name, token_standard, transaction_version, event_index, timestamp)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (sender, receiver, amount, amount_decimal, asset_type, asset_name, token_standard, transaction_version, event_index, timestamp, entry_function)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const insertMany = db.transaction((items: Transfer[]) => {
     for (const t of items) {
@@ -128,6 +130,7 @@ export function insertTransfersBatch(transfers: Transfer[]): void {
         t.transaction_version,
         t.event_index ?? null,
         t.timestamp,
+        t.entry_function ?? null,
       );
     }
   });
@@ -136,10 +139,14 @@ export function insertTransfersBatch(transfers: Transfer[]): void {
 
 export interface TransferQuery {
   address?: string;
+  sender?: string;
+  receiver?: string;
   from?: string;
   to?: string;
   min_amount?: number;
   asset_type?: string;
+  direction?: string;
+  verified_only?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -151,6 +158,14 @@ export function queryTransfers(q: TransferQuery): Transfer[] {
   if (q.address) {
     conditions.push('(sender = ? OR receiver = ?)');
     params.push(q.address, q.address);
+  }
+  if (q.sender) {
+    conditions.push('sender = ?');
+    params.push(q.sender);
+  }
+  if (q.receiver) {
+    conditions.push('receiver = ?');
+    params.push(q.receiver);
   }
   if (q.from) {
     conditions.push('timestamp >= ?');
@@ -168,6 +183,9 @@ export function queryTransfers(q: TransferQuery): Transfer[] {
     conditions.push('asset_type = ?');
     params.push(q.asset_type);
   }
+  if (q.verified_only) {
+    conditions.push('asset_type IN (SELECT asset_type FROM asset_metadata)');
+  }
 
   const where =
     conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -183,9 +201,32 @@ export function queryTransfers(q: TransferQuery): Transfer[] {
 
 export function getDistinctAssetTypes(): string[] {
   const rows = getDb()
-    .prepare('SELECT DISTINCT asset_type FROM transfers ORDER BY asset_type')
+    .prepare(`
+      SELECT DISTINCT t.asset_type FROM transfers t
+      INNER JOIN asset_metadata am ON t.asset_type = am.asset_type
+      ORDER BY t.asset_type
+    `)
     .all() as any[];
   return rows.map((r) => r.asset_type);
+}
+
+export function getDistinctEntryFunctions(): { entry_function: string; count: number }[] {
+  return getDb()
+    .prepare(`
+      SELECT entry_function, COUNT(*) as count
+      FROM transfers
+      WHERE entry_function IS NOT NULL
+        AND asset_type IN (SELECT asset_type FROM asset_metadata)
+      GROUP BY entry_function
+      ORDER BY count DESC
+    `)
+    .all() as any[];
+}
+
+export function listAssetMetadata(): AssetMeta[] {
+  return getDb()
+    .prepare('SELECT * FROM asset_metadata ORDER BY symbol')
+    .all() as AssetMeta[];
 }
 
 // --- Address Labels ---
@@ -347,6 +388,67 @@ export function insertRawActivitiesBatch(activities: any[]): void {
   insertMany(activities);
 }
 
+// --- Entry Function Categories ---
+
+export interface EntryFunctionCategory {
+  id?: number;
+  pattern: string;
+  match_type: string;
+  tax_category: string;
+  label: string | null;
+  source: string;
+  confidence: number;
+  updated_at: string;
+}
+
+export function getCategory(pattern: string): EntryFunctionCategory | undefined {
+  return getDb()
+    .prepare('SELECT * FROM entry_function_categories WHERE pattern = ?')
+    .get(pattern) as EntryFunctionCategory | undefined;
+}
+
+export function upsertCategory(cat: Partial<EntryFunctionCategory> & { pattern: string; tax_category: string }): void {
+  getDb()
+    .prepare(`
+      INSERT INTO entry_function_categories (pattern, match_type, tax_category, label, source, confidence)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(pattern) DO UPDATE SET
+        match_type=excluded.match_type,
+        tax_category=excluded.tax_category,
+        label=excluded.label,
+        source=excluded.source,
+        confidence=excluded.confidence,
+        updated_at=datetime('now')
+    `)
+    .run(
+      cat.pattern,
+      cat.match_type || 'exact',
+      cat.tax_category,
+      cat.label ?? null,
+      cat.source || 'manual',
+      cat.confidence ?? 1.0,
+    );
+}
+
+export function deleteCategory(pattern: string): void {
+  getDb()
+    .prepare('DELETE FROM entry_function_categories WHERE pattern = ?')
+    .run(pattern);
+}
+
+export function listCategories(): EntryFunctionCategory[] {
+  return getDb()
+    .prepare('SELECT * FROM entry_function_categories ORDER BY tax_category, pattern')
+    .all() as EntryFunctionCategory[];
+}
+
+export function getDistinctTaxCategories(): string[] {
+  const rows = getDb()
+    .prepare('SELECT DISTINCT tax_category FROM entry_function_categories ORDER BY tax_category')
+    .all() as { tax_category: string }[];
+  return rows.map((r) => r.tax_category);
+}
+
 // --- Graph Data ---
 
 export interface GraphNode {
@@ -371,12 +473,27 @@ export function getGraphData(filters: TransferQuery): {
   nodes: GraphNode[];
   links: GraphLink[];
 } {
-  const transfers = queryTransfers({ ...filters, limit: 50000 });
+  // Extract direction before passing to queryTransfers (it's handled here, not in SQL)
+  const { direction, ...sqlFilters } = filters;
+  const transfers = queryTransfers({ ...sqlFilters, limit: 50000 });
+
+  // We always need the tracked set: "all" keeps transfers involving any tracked
+  // address, "inbound"/"outbound" apply stricter per-side checks.
+  const tracked = listTrackedAddresses();
+  const trackedSet = new Set(tracked.map((a) => a.address));
 
   const nodeMap = new Map<string, GraphNode>();
   const linkMap = new Map<string, GraphLink>();
 
   for (const t of transfers) {
+    // Direction filter: inbound = receiver is tracked, outbound = sender is tracked,
+    // all = at least one side is tracked (exclude unrelated intermediate transfers)
+    if (direction === 'inbound' && !trackedSet.has(t.receiver)) continue;
+    else if (direction === 'outbound' && !trackedSet.has(t.sender)) continue;
+    else if (!direction || direction === '') {
+      if (!trackedSet.has(t.sender) && !trackedSet.has(t.receiver)) continue;
+    }
+
     // Build nodes
     for (const addr of [t.sender, t.receiver]) {
       if (!nodeMap.has(addr)) {
