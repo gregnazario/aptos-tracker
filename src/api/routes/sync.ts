@@ -15,16 +15,16 @@ export function syncRoutes(): Router {
     }
 
     syncInProgress = true;
-    const { address, autoExpand } = req.body || {};
+    const { address, autoExpand, from, to } = req.body || {};
 
     // Return immediately, sync runs in background
     res.json({ ok: true, message: 'Sync started' });
 
     try {
       if (address) {
-        lastSyncResults = [await syncAddress(address, { autoExpand })];
+        lastSyncResults = [await syncAddress(address, { autoExpand, from, to })];
       } else {
-        lastSyncResults = await syncAll({ autoExpand });
+        lastSyncResults = await syncAll({ autoExpand, from, to });
       }
     } catch (err: any) {
       lastSyncResults = { error: err.message };

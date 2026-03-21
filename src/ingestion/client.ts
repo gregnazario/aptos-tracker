@@ -131,23 +131,56 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export interface TimeRange {
+  from?: string; // ISO timestamp
+  to?: string;   // ISO timestamp
+}
+
 /**
  * Fetch fungible asset activities for a specific address, starting after a given version.
+ * Optionally filters by timestamp range to avoid fetching data outside the requested window.
  */
 export async function fetchActivitiesForAddress(
   address: string,
   afterVersion: number,
   limit: number = config.batchSize,
+  timeRange?: TimeRange,
 ): Promise<RawActivity[]> {
+  // Build the where clause dynamically based on whether time range is provided
+  const hasFrom = !!timeRange?.from;
+  const hasTo = !!timeRange?.to;
+
+  const timestampFilter = [
+    hasFrom ? 'transaction_timestamp: { _gte: $from }' : null,
+    hasTo ? 'transaction_timestamp: { _lte: $to }' : null,
+  ].filter(Boolean);
+
+  // Merge timestamp filters into a single _and if both exist, otherwise inline
+  const timestampClause = timestampFilter.length > 0
+    ? timestampFilter.join(', ')
+    : '';
+
+  const varDefs = [
+    '$address: String!',
+    '$after_version: bigint!',
+    '$limit: Int!',
+    '$types: [String!]!',
+    hasFrom ? '$from: timestamp!' : null,
+    hasTo ? '$to: timestamp!' : null,
+  ].filter(Boolean).join(', ');
+
+  const whereFields = [
+    'owner_address: { _eq: $address }',
+    'type: { _in: $types }',
+    'is_transaction_success: { _eq: true }',
+    'transaction_version: { _gt: $after_version }',
+    timestampClause,
+  ].filter(Boolean).join(', ');
+
   const query = `
-    query($address: String!, $after_version: bigint!, $limit: Int!, $types: [String!]!) {
+    query(${varDefs}) {
       fungible_asset_activities(
-        where: {
-          owner_address: { _eq: $address }
-          type: { _in: $types }
-          is_transaction_success: { _eq: true }
-          transaction_version: { _gt: $after_version }
-        }
+        where: { ${whereFields} }
         order_by: { transaction_version: asc }
         limit: $limit
       ) {
@@ -164,12 +197,16 @@ export async function fetchActivitiesForAddress(
     }
   `;
 
-  const data = await graphqlRequest(query, {
+  const variables: Record<string, any> = {
     address,
     after_version: afterVersion,
     limit,
     types: ACTIVITY_TYPES,
-  });
+  };
+  if (hasFrom) variables.from = timeRange!.from;
+  if (hasTo) variables.to = timeRange!.to;
+
+  const data = await graphqlRequest(query, variables);
 
   await sleep(config.rateLimitMs);
   return data.fungible_asset_activities;

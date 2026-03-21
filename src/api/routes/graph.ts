@@ -9,6 +9,7 @@ const TYPE_TAGS: Record<string, string> = {
   contract: 'Contract',
   staking_pool: 'Staking',
   lending_pool: 'Lending',
+  scam: 'SCAM',
 };
 
 function buildNodeName(n: GraphNode): string {

@@ -14,9 +14,24 @@
       <button id="export-labels-btn">Export Labels</button>
       <button id="import-labels-btn">Import Labels</button>
       <input type="file" id="import-file-input" accept=".json" class="hidden">
+      <button id="well-known-btn">Well-Known Labels</button>
       <button id="manage-addresses-btn">Addresses</button>
     </div>
   </header>
+
+  <div id="well-known-panel" class="hidden">
+    <div class="panel-header">
+      <h2>Well-Known Labels</h2>
+      <button id="close-wk-panel-btn">&times;</button>
+    </div>
+    <div class="wk-toolbar">
+      <input type="text" id="wk-search" placeholder="Search labels...">
+      <select id="wk-category-filter">
+        <option value="">All Categories</option>
+      </select>
+    </div>
+    <div id="wk-list"></div>
+  </div>
 
   <div id="address-panel" class="hidden">
     <div class="panel-header">

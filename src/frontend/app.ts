@@ -202,13 +202,146 @@ async function handleAddAddress(): Promise<void> {
   }
 }
 
+// --- Well-Known Labels Panel ---
+
+function openWellKnownPanel(): void {
+  document.getElementById('well-known-panel')!.classList.remove('hidden');
+  loadWellKnownList();
+}
+
+function closeWellKnownPanel(): void {
+  document.getElementById('well-known-panel')!.classList.add('hidden');
+}
+
+let wkSearchTerm = '';
+let wkCategoryFilter = '';
+
+async function loadWellKnownList(): Promise<void> {
+  const list = document.getElementById('wk-list')!;
+  list.textContent = '';
+
+  try {
+    const { categories, entries } = await api.getWellKnownLabels();
+
+    // Populate category filter on first load
+    const catSelect = document.getElementById('wk-category-filter') as HTMLSelectElement;
+    if (catSelect.options.length <= 1) {
+      for (const cat of categories) {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        catSelect.appendChild(opt);
+      }
+    }
+
+    // Filter entries
+    const filtered = entries.filter((e) => {
+      if (wkCategoryFilter && e.category !== wkCategoryFilter) return false;
+      if (wkSearchTerm) {
+        const term = wkSearchTerm.toLowerCase();
+        return (
+          e.label_name.toLowerCase().includes(term) ||
+          e.address.toLowerCase().includes(term) ||
+          (e.description?.toLowerCase().includes(term) ?? false)
+        );
+      }
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'wk-empty';
+      empty.textContent = wkSearchTerm || wkCategoryFilter
+        ? 'No matching labels found.'
+        : 'No well-known labels configured.';
+      list.appendChild(empty);
+      return;
+    }
+
+    // Group by category
+    const grouped = new Map<string, typeof filtered>();
+    for (const entry of filtered) {
+      const group = grouped.get(entry.category) || [];
+      group.push(entry);
+      grouped.set(entry.category, group);
+    }
+
+    for (const [category, items] of grouped) {
+      const header = document.createElement('div');
+      header.className = 'wk-category-header';
+      header.textContent = `${category} (${items.length})`;
+      list.appendChild(header);
+
+      for (const entry of items) {
+        const row = document.createElement('div');
+        row.className = 'wk-entry';
+
+        const info = document.createElement('div');
+        info.className = 'wk-entry-info';
+
+        const name = document.createElement('div');
+        name.className = 'wk-entry-name';
+        name.textContent = entry.label_name;
+        info.appendChild(name);
+
+        if (entry.description) {
+          const desc = document.createElement('div');
+          desc.className = 'wk-entry-desc';
+          desc.textContent = entry.description;
+          info.appendChild(desc);
+        }
+
+        const addr = document.createElement('div');
+        addr.className = 'wk-entry-address';
+        addr.textContent = entry.address;
+        info.appendChild(addr);
+
+        row.appendChild(info);
+
+        const badge = document.createElement('span');
+        badge.className = `wk-type-badge wk-type-${entry.label_type}`;
+        badge.textContent = entry.label_type.replace('_', ' ');
+        row.appendChild(badge);
+
+        if (entry.applied) {
+          const applied = document.createElement('span');
+          applied.className = 'wk-applied-badge';
+          applied.textContent = 'Applied';
+          row.appendChild(applied);
+        }
+
+        list.appendChild(row);
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load well-known labels:', e);
+  }
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   initControls(refreshView);
   initContextMenu(refreshView);
   refreshView();
 
-  // Address panel
+  // Well-Known Labels panel
+  document
+    .getElementById('well-known-btn')!
+    .addEventListener('click', openWellKnownPanel);
+  document
+    .getElementById('close-wk-panel-btn')!
+    .addEventListener('click', closeWellKnownPanel);
+  document.getElementById('wk-search')!.addEventListener('input', (e) => {
+    wkSearchTerm = (e.target as HTMLInputElement).value;
+    loadWellKnownList();
+  });
+  document
+    .getElementById('wk-category-filter')!
+    .addEventListener('change', (e) => {
+      wkCategoryFilter = (e.target as HTMLSelectElement).value;
+      loadWellKnownList();
+    });
+
   // Export / Import labels
   document
     .getElementById('export-labels-btn')!

@@ -81,8 +81,10 @@ program
     'Auto-track discovered non-boundary addresses',
     false,
   )
+  .option('--from <date>', 'Only fetch activities on or after this date (YYYY-MM-DD)')
+  .option('--to <date>', 'Only fetch activities on or before this date (YYYY-MM-DD)')
   .action(
-    async (opts: { address?: string; full: boolean; autoExpand: boolean }) => {
+    async (opts: { address?: string; full: boolean; autoExpand: boolean; from?: string; to?: string }) => {
       getDb();
       seedKnownAddresses();
 
@@ -91,6 +93,8 @@ program
           const result = await syncAddress(opts.address, {
             full: opts.full,
             autoExpand: opts.autoExpand,
+            from: opts.from,
+            to: opts.to ? `${opts.to}T23:59:59` : undefined,
           });
           console.log(
             `\nDone. ${result.transfersFound} transfers found, ${result.boundariesHit.length} boundaries hit.`,
@@ -99,6 +103,8 @@ program
           const results = await syncAll({
             full: opts.full,
             autoExpand: opts.autoExpand,
+            from: opts.from,
+            to: opts.to ? `${opts.to}T23:59:59` : undefined,
           });
           const totalTransfers = results.reduce(
             (sum, r) => sum + r.transfersFound,

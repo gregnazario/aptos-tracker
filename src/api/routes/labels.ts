@@ -7,6 +7,7 @@ import {
   upsertCategory,
   upsertLabel,
 } from '../../db/queries.js';
+import { WELL_KNOWN, WELL_KNOWN_CATEGORIES } from '../../labels/well-known.js';
 
 export function labelRoutes(): Router {
   const router = Router();
@@ -66,6 +67,17 @@ export function labelRoutes(): Router {
     }
 
     res.json({ ok: true, imported: { labels: labelsCount, categories: categoriesCount } });
+  });
+
+  // Well-known address registry (browsable from the UI)
+  router.get('/well-known', (_req, res) => {
+    const applied = listLabels();
+    const appliedSet = new Set(applied.map((l) => l.address));
+    const entries = WELL_KNOWN.map((e) => ({
+      ...e,
+      applied: appliedSet.has(e.address),
+    }));
+    res.json({ categories: WELL_KNOWN_CATEGORIES, entries });
   });
 
   router.get('/:address', (req, res) => {

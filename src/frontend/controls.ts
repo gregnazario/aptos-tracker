@@ -117,13 +117,17 @@ export function initControls(refreshView: () => void): void {
     .getElementById('view-toggle')!
     .addEventListener('change', refreshAndSave);
 
-  // Sync button
+  // Sync button — passes current date range so only relevant data is fetched
   document.getElementById('sync-btn')!.addEventListener('click', async () => {
     const btn = document.getElementById('sync-btn') as HTMLButtonElement;
     btn.textContent = 'Syncing...';
     btn.disabled = true;
     try {
-      await api.triggerSync();
+      const from = (document.getElementById('date-from') as HTMLInputElement).value || undefined;
+      const to = (document.getElementById('date-to') as HTMLInputElement).value
+        ? `${(document.getElementById('date-to') as HTMLInputElement).value}T23:59:59`
+        : undefined;
+      await api.triggerSync(undefined, { from, to });
       await pollSyncStatus();
       refreshView();
     } catch (e) {

@@ -143,8 +143,12 @@ export const api = {
     return request('GET', '/transfers/assets') as Promise<AssetInfo[]>;
   },
 
-  triggerSync(address?: string) {
-    return request('POST', '/sync', address ? { address } : {});
+  triggerSync(address?: string, timeRange?: { from?: string; to?: string }) {
+    const body: Record<string, any> = {};
+    if (address) body.address = address;
+    if (timeRange?.from) body.from = timeRange.from;
+    if (timeRange?.to) body.to = timeRange.to;
+    return request('POST', '/sync', body);
   },
 
   getSyncStatus() {
@@ -193,6 +197,21 @@ export const api = {
     { entry_function: string; count: number; tax_category: string; confidence: number; matched_rule: string | null }[]
   > {
     return request('GET', '/transfers/entry-functions/categorized') as any;
+  },
+
+  getWellKnownLabels(): Promise<{
+    categories: string[];
+    entries: Array<{
+      address: string;
+      label_type: string;
+      label_name: string;
+      is_boundary: number;
+      category: string;
+      description?: string;
+      applied: boolean;
+    }>;
+  }> {
+    return request('GET', '/labels/well-known') as any;
   },
 
   async exportLabels(): Promise<void> {

@@ -4,6 +4,7 @@ import {
   fetchActivitiesForAddress,
   fetchEntryFunctions,
   type RawActivity,
+  type TimeRange,
 } from './client.js';
 
 export interface FetchResult {
@@ -14,12 +15,14 @@ export interface FetchResult {
 /**
  * Fetch all activities for an address starting from afterVersion.
  * Handles pagination by advancing the version cursor.
+ * Optionally scoped to a time range so only relevant data is fetched.
  * Returns both the full transaction context activities and entry functions.
  */
 export async function fetchAllActivities(
   address: string,
   afterVersion: number,
   onBatch?: (count: number) => void,
+  timeRange?: TimeRange,
 ): Promise<FetchResult> {
   const allContextActivities: RawActivity[] = [];
   const allEntryFunctions = new Map<number, string>();
@@ -32,6 +35,7 @@ export async function fetchAllActivities(
       address,
       currentVersion,
       config.batchSize,
+      timeRange,
     );
 
     if (batch.length === 0) break;

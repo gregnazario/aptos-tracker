@@ -8,9 +8,16 @@ import {
   updateSyncCursor,
 } from '../db/queries.js';
 import { checkBoundaries } from './boundary.js';
-import { resetChunkSize } from './client.js';
+import { resetChunkSize, type TimeRange } from './client.js';
 import { correlateActivities } from './correlator.js';
 import { fetchAllActivities } from './fetcher.js';
+
+export interface SyncOptions {
+  autoExpand?: boolean;
+  full?: boolean;
+  from?: string; // ISO timestamp – only fetch activities on or after this time
+  to?: string;   // ISO timestamp – only fetch activities on or before this time
+}
 
 export interface SyncResult {
   address: string;
@@ -22,10 +29,11 @@ export interface SyncResult {
 
 /**
  * Sync a single address: fetch new activities, correlate into transfers, check boundaries.
+ * When from/to are provided, only fetches activities within that time window.
  */
 export async function syncAddress(
   address: string,
-  options: { autoExpand?: boolean; full?: boolean } = {},
+  options: SyncOptions = {},
 ): Promise<SyncResult> {
   const cursor = getSyncCursor(address);
   const afterVersion = options.full ? 0 : cursor.last_version;
@@ -36,6 +44,12 @@ export async function syncAddress(
   );
 
   try {
+    // Build time range filter (if provided)
+    const timeRange: TimeRange | undefined =
+      options.from || options.to
+        ? { from: options.from, to: options.to }
+        : undefined;
+
     // Fetch all activities with full transaction context + entry functions
     const { activities, entryFunctions } = await fetchAllActivities(
       address,
@@ -43,6 +57,7 @@ export async function syncAddress(
       (count) => {
         process.stdout.write(`\r  Fetched ${count} activities...`);
       },
+      timeRange,
     );
 
     if (activities.length > 0) {
@@ -107,7 +122,7 @@ export async function syncAddress(
  * Sync all tracked addresses.
  */
 export async function syncAll(
-  options: { autoExpand?: boolean; full?: boolean } = {},
+  options: SyncOptions = {},
 ): Promise<SyncResult[]> {
   const addresses = listTrackedAddresses();
   const active = addresses.filter((a) => a.is_active);

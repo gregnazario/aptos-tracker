@@ -36,6 +36,9 @@ export function getNodeColor(labelType: string): string {
     exchange: '#d29922',
     bridge: '#a371f7',
     contract: '#8b949e',
+    staking_pool: '#d2a8ff',
+    lending_pool: '#f0883e',
+    scam: '#f85149',
     unknown: '#484f58',
   };
   return colors[labelType] || colors.unknown;
