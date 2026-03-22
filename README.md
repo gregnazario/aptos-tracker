@@ -13,6 +13,18 @@ A CLI + web application for tracking and visualizing fund flows across Aptos blo
 - **Label import/export** — Share label sets as JSON files
 - **Aptos Name Service** — Resolve `.apt` names when adding addresses
 
+## Demo
+
+The clip below alternates between the Sankey and force graph views (illustrative previews in the app’s dark theme). Source art lives under [`docs/media/`](docs/media/) if you want to refresh the assets.
+
+<video src="docs/media/ui-demo.mp4" controls muted playsinline width="100%"></video>
+
+### Example views
+
+| Sankey (flows by volume) | Force graph (address network) |
+| --- | --- |
+| ![Sankey diagram example](docs/media/sankey-example.png) | ![Force graph example](docs/media/force-graph-example.png) |
+
 ## Quick Start
 
 ```bash
