@@ -1,12 +1,4 @@
-import {
-  addTrackedAddress,
-  getSyncCursor,
-  insertRawActivitiesBatch,
-  insertTransfersBatch,
-  listTrackedAddresses,
-  setSyncStatus,
-  updateSyncCursor,
-} from '../db/queries.js';
+import type { AssetMeta, IngestionDeps } from '../storage/interface.js';
 import { checkBoundaries } from './boundary.js';
 import { resetChunkSize, type TimeRange } from './client.js';
 import { correlateActivities } from './correlator.js';
@@ -33,15 +25,14 @@ export interface SyncResult {
  */
 export async function syncAddress(
   address: string,
+  deps: IngestionDeps,
   options: SyncOptions = {},
 ): Promise<SyncResult> {
-  const cursor = getSyncCursor(address);
+  const cursor = await deps.getSyncCursor(address);
   const afterVersion = options.full ? 0 : cursor.last_version;
 
-  setSyncStatus(address, 'syncing');
-  console.log(
-    `  Syncing ${address.slice(0, 10)}... from version ${afterVersion}`,
-  );
+  await deps.setSyncStatus(address, 'syncing');
+  deps.onProgress?.(`  Syncing ${address.slice(0, 10)}... from version ${afterVersion}\n`);
 
   try {
     // Build time range filter (if provided)
@@ -54,28 +45,41 @@ export async function syncAddress(
     const { activities, entryFunctions } = await fetchAllActivities(
       address,
       afterVersion,
+      deps.config,
       (count) => {
-        process.stdout.write(`\r  Fetched ${count} activities...`);
+        deps.onProgress?.(`\r  Fetched ${count} activities...`);
       },
       timeRange,
     );
 
     if (activities.length > 0) {
-      console.log(`\n  Got ${activities.length} context activities, ${entryFunctions.size} entry functions`);
+      deps.onProgress?.(`\n  Got ${activities.length} context activities, ${entryFunctions.size} entry functions\n`);
     } else {
-      console.log('  No new activities');
+      deps.onProgress?.('  No new activities\n');
     }
 
     // Store raw activities
-    insertRawActivitiesBatch(activities);
+    await deps.insertRawActivities(activities);
+
+    // Pre-fetch asset metadata for sync correlateActivities call
+    const assetTypes = new Set(activities.map(a => a.asset_type));
+    const metaMap = new Map<string, AssetMeta>();
+    for (const at of assetTypes) {
+      const m = await deps.getAssetMeta(at);
+      if (m) metaMap.set(at, m);
+    }
 
     // Correlate into transfers (with entry functions)
-    const transfers = correlateActivities(activities, entryFunctions);
-    console.log(`  Correlated ${transfers.length} transfers`);
+    const transfers = correlateActivities(
+      activities,
+      entryFunctions,
+      (at) => metaMap.get(at),
+    );
+    deps.onProgress?.(`  Correlated ${transfers.length} transfers\n`);
 
     // Store transfers
     if (transfers.length > 0) {
-      insertTransfersBatch(transfers);
+      await deps.insertTransfers(transfers);
     }
 
     // Update cursor to max version
@@ -83,27 +87,28 @@ export async function syncAddress(
       const maxVersion = Math.max(
         ...activities.map((a) => a.transaction_version),
       );
-      updateSyncCursor(address, maxVersion);
+      await deps.updateSyncCursor(address, maxVersion);
     }
 
     // Check boundaries
     const { boundaries, nonBoundaries } = await checkBoundaries(
       transfers,
       address,
+      { getLabel: deps.getLabel, upsertLabel: deps.upsertLabel, config: deps.config },
     );
 
     // Auto-expand if requested
     if (options.autoExpand) {
       for (const addr of nonBoundaries) {
-        const existing = getSyncCursor(addr);
+        const existing = await deps.getSyncCursor(addr);
         if (!existing || existing.last_version === 0) {
-          console.log(`  Auto-expanding to track ${addr.slice(0, 10)}...`);
-          addTrackedAddress(addr);
+          deps.onProgress?.(`  Auto-expanding to track ${addr.slice(0, 10)}...\n`);
+          await deps.addTrackedAddress(addr);
         }
       }
     }
 
-    setSyncStatus(address, 'idle');
+    await deps.setSyncStatus(address, 'idle');
 
     return {
       address,
@@ -113,7 +118,7 @@ export async function syncAddress(
       newAddressesDiscovered: nonBoundaries,
     };
   } catch (err) {
-    setSyncStatus(address, 'error');
+    await deps.setSyncStatus(address, 'error');
     throw err;
   }
 }
@@ -122,29 +127,30 @@ export async function syncAddress(
  * Sync all tracked addresses.
  */
 export async function syncAll(
+  deps: IngestionDeps,
   options: SyncOptions = {},
 ): Promise<SyncResult[]> {
-  const addresses = listTrackedAddresses();
+  const addresses = await deps.listTrackedAddresses();
   const active = addresses.filter((a) => a.is_active);
 
   if (active.length === 0) {
-    console.log(
-      'No tracked addresses. Add one with: aptos-tracker add <address>',
+    deps.onProgress?.(
+      'No tracked addresses. Add one with: aptos-tracker add <address>\n',
     );
     return [];
   }
 
   resetChunkSize();
-  console.log(`Syncing ${active.length} address(es)...\n`);
+  deps.onProgress?.(`Syncing ${active.length} address(es)...\n\n`);
 
   const results: SyncResult[] = [];
   for (const addr of active) {
     try {
-      const result = await syncAddress(addr.address, options);
+      const result = await syncAddress(addr.address, deps, options);
       results.push(result);
     } catch (err: any) {
-      console.error(
-        `  Error syncing ${addr.address.slice(0, 10)}...: ${err.message}`,
+      deps.onProgress?.(
+        `  Error syncing ${addr.address.slice(0, 10)}...: ${err.message}\n`,
       );
     }
   }

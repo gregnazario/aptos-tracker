@@ -1,4 +1,4 @@
-import { config } from '../config.js';
+import type { IngestionConfig } from '../storage/interface.js';
 
 const ACTIVITY_TYPES = [
   '0x1::fungible_asset::Withdraw',
@@ -42,6 +42,7 @@ function isTimeout(err: unknown): boolean {
 export async function graphqlRequest(
   query: string,
   variables: Record<string, any>,
+  config: IngestionConfig,
 ): Promise<any> {
   const maxRetries = 3;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -143,6 +144,7 @@ export interface TimeRange {
 export async function fetchActivitiesForAddress(
   address: string,
   afterVersion: number,
+  config: IngestionConfig,
   limit: number = config.batchSize,
   timeRange?: TimeRange,
 ): Promise<RawActivity[]> {
@@ -206,7 +208,7 @@ export async function fetchActivitiesForAddress(
   if (hasFrom) variables.from = timeRange!.from;
   if (hasTo) variables.to = timeRange!.to;
 
-  const data = await graphqlRequest(query, variables);
+  const data = await graphqlRequest(query, variables, config);
 
   await sleep(config.rateLimitMs);
   return data.fungible_asset_activities;
@@ -218,6 +220,7 @@ export async function fetchActivitiesForAddress(
  */
 export async function fetchActivitiesByVersions(
   versions: number[],
+  config: IngestionConfig,
 ): Promise<RawActivity[]> {
   if (versions.length === 0) return [];
 
@@ -251,7 +254,7 @@ export async function fetchActivitiesByVersions(
     const data = await graphqlRequest(query, {
       versions: chunk,
       types: ACTIVITY_TYPES,
-    });
+    }, config);
 
     allActivities.push(...data.fungible_asset_activities);
     i += chunk.length;
@@ -267,6 +270,7 @@ export async function fetchActivitiesByVersions(
  */
 export async function fetchEntryFunctions(
   versions: number[],
+  config: IngestionConfig,
 ): Promise<Map<number, string>> {
   const result = new Map<number, string>();
   if (versions.length === 0) return result;
@@ -284,7 +288,7 @@ export async function fetchEntryFunctions(
       }
     `;
 
-    const data = await graphqlRequest(query, { versions: chunk });
+    const data = await graphqlRequest(query, { versions: chunk }, config);
     for (const tx of data.user_transactions) {
       if (tx.entry_function_id_str) {
         result.set(Number(tx.version), tx.entry_function_id_str);
@@ -300,7 +304,7 @@ export async function fetchEntryFunctions(
 /**
  * Check if an address has published Move modules (heuristic for contract detection).
  */
-export async function hasPublishedModules(address: string): Promise<boolean> {
+export async function hasPublishedModules(address: string, config: IngestionConfig): Promise<boolean> {
   try {
     const baseUrl = config.graphqlUrl.replace('/v1/graphql', '');
     const headers: Record<string, string> = {};

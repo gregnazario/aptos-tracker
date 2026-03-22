@@ -1,4 +1,4 @@
-import { config } from '../config.js';
+import type { IngestionConfig } from '../storage/interface.js';
 import {
   fetchActivitiesByVersions,
   fetchActivitiesForAddress,
@@ -21,6 +21,7 @@ export interface FetchResult {
 export async function fetchAllActivities(
   address: string,
   afterVersion: number,
+  config: IngestionConfig,
   onBatch?: (count: number) => void,
   timeRange?: TimeRange,
 ): Promise<FetchResult> {
@@ -34,6 +35,7 @@ export async function fetchAllActivities(
     const batch = await fetchActivitiesForAddress(
       address,
       currentVersion,
+      config,
       config.batchSize,
       timeRange,
     );
@@ -45,11 +47,11 @@ export async function fetchAllActivities(
 
     // Step 2: Get unique transaction versions and fetch full context
     const versions = [...new Set(batch.map((a) => a.transaction_version))];
-    const contextActivities = await fetchActivitiesByVersions(versions);
+    const contextActivities = await fetchActivitiesByVersions(versions, config);
     allContextActivities.push(...contextActivities);
 
     // Step 3: Fetch entry functions for these versions
-    const entryFns = await fetchEntryFunctions(versions);
+    const entryFns = await fetchEntryFunctions(versions, config);
     for (const [version, fn] of entryFns) {
       allEntryFunctions.set(version, fn);
     }

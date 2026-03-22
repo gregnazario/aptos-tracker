@@ -1,6 +1,11 @@
-import type { Transfer } from '../db/queries.js';
-import { getLabel, upsertLabel } from '../db/queries.js';
+import type { AddressLabel, IngestionConfig, Transfer } from '../storage/interface.js';
 import { hasPublishedModules } from './client.js';
+
+export interface BoundaryDeps {
+  getLabel: (addr: string) => Promise<AddressLabel | undefined>;
+  upsertLabel: (addr: string, label: Partial<AddressLabel>) => Promise<void>;
+  config: IngestionConfig;
+}
 
 /**
  * Check all counterparty addresses in a set of transfers.
@@ -9,6 +14,7 @@ import { hasPublishedModules } from './client.js';
 export async function checkBoundaries(
   transfers: Transfer[],
   trackedAddress: string,
+  deps: BoundaryDeps,
 ): Promise<{ boundaries: string[]; nonBoundaries: string[] }> {
   const counterparties = new Set<string>();
 
@@ -22,7 +28,7 @@ export async function checkBoundaries(
 
   for (const addr of counterparties) {
     // Already labeled?
-    const label = getLabel(addr);
+    const label = await deps.getLabel(addr);
     if (label) {
       if (label.is_boundary) {
         boundaries.push(addr);
@@ -33,7 +39,7 @@ export async function checkBoundaries(
     }
 
     // Run auto-detection
-    const detected = await autoDetect(addr);
+    const detected = await autoDetect(addr, deps);
     if (detected.is_boundary) {
       boundaries.push(addr);
     } else {
@@ -49,12 +55,13 @@ export async function checkBoundaries(
  */
 export async function autoDetect(
   address: string,
+  deps: BoundaryDeps,
 ): Promise<{ is_boundary: boolean; label_type: string; confidence: number }> {
   // Check if address has published Move modules
-  const hasMods = await hasPublishedModules(address);
+  const hasMods = await hasPublishedModules(address, deps.config);
 
   if (hasMods) {
-    upsertLabel(address, {
+    await deps.upsertLabel(address, {
       label_type: 'contract',
       is_boundary: 1,
       source: 'auto_detected',
@@ -64,9 +71,7 @@ export async function autoDetect(
   }
 
   // For now, label unknown addresses as 'user' with no boundary
-  // More sophisticated heuristics (activity count, counterparty count) require
-  // additional API calls and will be run via the `detect` CLI command
-  upsertLabel(address, {
+  await deps.upsertLabel(address, {
     label_type: 'user',
     is_boundary: 0,
     source: 'auto_detected',

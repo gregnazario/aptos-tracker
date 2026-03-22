@@ -1,4 +1,4 @@
-import { type Transfer, getAssetMeta } from '../db/queries.js';
+import type { AssetMeta, Transfer } from '../storage/interface.js';
 import type { RawActivity } from './client.js';
 
 /**
@@ -11,6 +11,7 @@ import type { RawActivity } from './client.js';
 export function correlateActivities(
   activities: RawActivity[],
   entryFunctions?: Map<number, string>,
+  getAssetMeta?: (assetType: string) => AssetMeta | undefined,
 ): Transfer[] {
   // Group by transaction_version + asset_type
   const groups = new Map<string, RawActivity[]>();
@@ -42,7 +43,7 @@ export function correlateActivities(
 
         // Same amount, different addresses → this is a transfer
         if (w.amount === d.amount && w.owner_address !== d.owner_address) {
-          const meta = getAssetMeta(w.asset_type);
+          const meta = getAssetMeta?.(w.asset_type);
           const decimals = meta?.decimals ?? 8;
           const amountDecimal = parseFloat(w.amount) / 10 ** decimals;
 
