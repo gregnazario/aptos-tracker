@@ -1,3 +1,4 @@
+import { config } from '../config.js';
 import { getChunkSize, graphqlRequest } from '../ingestion/client.js';
 
 interface AnsRecord {
@@ -55,7 +56,7 @@ export async function resolveAnsName(
   `;
 
   try {
-    const data = await graphqlRequest(query, { domain, subdomain });
+    const data = await graphqlRequest(query, { domain, subdomain }, config);
     const records = data.current_aptos_names as AnsRecord[];
     if (records.length > 0) {
       return records[0].registered_address || records[0].owner_address;
@@ -107,7 +108,7 @@ export async function lookupAnsName(
   `;
 
   try {
-    const data = await graphqlRequest(query, { address });
+    const data = await graphqlRequest(query, { address }, config);
     const byRegistered = data.by_registered as AnsRecord[];
     if (byRegistered.length > 0) {
       return formatAnsName(byRegistered[0]);
@@ -166,7 +167,7 @@ export async function batchLookupAnsNames(
     `;
 
     try {
-      const data = await graphqlRequest(query, { addresses: chunk });
+      const data = await graphqlRequest(query, { addresses: chunk }, config);
 
       for (const record of data.by_registered as AnsRecord[]) {
         if (record.registered_address) {

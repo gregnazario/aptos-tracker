@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getSyncCursor, listTrackedAddresses } from '../../db/queries.js';
 import { syncAddress, syncAll } from '../../ingestion/sync.js';
+import { buildServerDeps } from '../../storage/server-deps.js';
 
 let syncInProgress = false;
 let lastSyncResults: any = null;
@@ -20,11 +21,12 @@ export function syncRoutes(): Router {
     // Return immediately, sync runs in background
     res.json({ ok: true, message: 'Sync started' });
 
+    const deps = buildServerDeps();
     try {
       if (address) {
-        lastSyncResults = [await syncAddress(address, { autoExpand, from, to })];
+        lastSyncResults = [await syncAddress(address, deps, { autoExpand, from, to })];
       } else {
-        lastSyncResults = await syncAll({ autoExpand, from, to });
+        lastSyncResults = await syncAll(deps, { autoExpand, from, to });
       }
     } catch (err: any) {
       lastSyncResults = { error: err.message };

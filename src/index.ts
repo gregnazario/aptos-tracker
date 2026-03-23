@@ -13,6 +13,7 @@ import {
   removeTrackedAddress,
 } from './db/queries.js';
 import { syncAddress, syncAll } from './ingestion/sync.js';
+import { buildServerDeps } from './storage/server-deps.js';
 import { detectBoundaries } from './labels/detector.js';
 import { listLabels, setLabel } from './labels/manager.js';
 import { seedKnownAddresses } from './labels/seed.js';
@@ -88,9 +89,10 @@ program
       getDb();
       seedKnownAddresses();
 
+      const deps = buildServerDeps();
       try {
         if (opts.address) {
-          const result = await syncAddress(opts.address, {
+          const result = await syncAddress(opts.address, deps, {
             full: opts.full,
             autoExpand: opts.autoExpand,
             from: opts.from,
@@ -100,7 +102,7 @@ program
             `\nDone. ${result.transfersFound} transfers found, ${result.boundariesHit.length} boundaries hit.`,
           );
         } else {
-          const results = await syncAll({
+          const results = await syncAll(deps, {
             full: opts.full,
             autoExpand: opts.autoExpand,
             from: opts.from,

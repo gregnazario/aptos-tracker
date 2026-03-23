@@ -1,3 +1,4 @@
+import { config } from '../config.js';
 import { getDb } from '../db/connection.js';
 import { getLabel, upsertLabel } from '../db/queries.js';
 import { hasPublishedModules } from '../ingestion/client.js';
@@ -37,7 +38,7 @@ export async function detectBoundaries(): Promise<DetectionResult[]> {
     const _existing = getLabel(address);
 
     // Heuristic 1: Has published modules → contract/boundary
-    const hasMods = await hasPublishedModules(address);
+    const hasMods = await hasPublishedModules(address, config);
     if (hasMods) {
       upsertLabel(address, {
         label_type: 'contract',
