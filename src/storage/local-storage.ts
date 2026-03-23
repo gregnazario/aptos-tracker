@@ -55,16 +55,19 @@ export function lsListLabels(): AddressLabel[] {
 export function lsUpsertLabel(address: string, label: Partial<AddressLabel>): void {
   const list = read<AddressLabel[]>(KEYS.labels, []);
   const idx = list.findIndex(l => l.address === address);
-  const entry: AddressLabel = {
+  const defaults: AddressLabel = {
     address,
     label_type: label.label_type || 'user',
     label_name: label.label_name ?? null,
     is_boundary: label.is_boundary ?? 0,
     source: label.source || 'manual',
     confidence: label.confidence ?? 1.0,
+  };
+  const entry: AddressLabel = {
+    ...defaults,
     ...(idx >= 0 ? list[idx] : {}),
     ...label,
-    address, // ensure address is always correct
+    address,
   };
   if (idx >= 0) list[idx] = entry; else list.push(entry);
   write(KEYS.labels, list);

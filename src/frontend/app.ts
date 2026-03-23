@@ -2,6 +2,7 @@ import * as d3 from 'd3';
 import { api, type TrackedAddress } from './api-client.js';
 import { initContextMenu } from './context-menu.js';
 import { getFilterParams, initControls } from './controls.js';
+import { getMode, initApi } from './detect-mode.js';
 import { renderForce } from './force-view.js';
 import { renderSankey } from './sankey-view.js';
 
@@ -319,7 +320,15 @@ async function loadWellKnownList(): Promise<void> {
 }
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await initApi();
+
+  // Show mode banner
+  const banner = document.getElementById('mode-banner');
+  if (banner && getMode() === 'local') {
+    banner.classList.remove('hidden');
+  }
+
   initControls(refreshView);
   initContextMenu(refreshView);
   refreshView();

@@ -108,7 +108,8 @@ function buildFilterQs(params: FilterParams): URLSearchParams {
   return qs;
 }
 
-export const api = {
+// biome-ignore lint/style/useSingleVarDeclarator: switchable for local mode
+export let api = {
   get(path: string) {
     return request('GET', path);
   },
@@ -235,3 +236,8 @@ export const api = {
     return result.imported;
   },
 };
+
+/** Replace the api implementation (used by detect-mode for local mode) */
+export function setApiClient(client: typeof api): void {
+  api = client;
+}

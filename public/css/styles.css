@@ -768,6 +768,20 @@ button:hover {
   font-size: 13px;
 }
 
+/* Mode banner */
+#mode-banner {
+  background: #1a3a2a;
+  color: #3fb950;
+  text-align: center;
+  padding: 6px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid #3fb950;
+}
+#mode-banner a {
+  color: #58a6ff;
+  margin-left: 8px;
+}
+
 /* Utility */
 .hidden {
   display: none;
