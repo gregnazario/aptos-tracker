@@ -1,5 +1,7 @@
 # Aptos Fund Flow Tracker
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A CLI + web application for tracking and visualizing fund flows across Aptos blockchain addresses. Syncs on-chain activity via the Aptos Indexer GraphQL API, stores it locally in SQLite, and renders interactive Sankey diagrams and force-directed graphs.
 
 ## Features
