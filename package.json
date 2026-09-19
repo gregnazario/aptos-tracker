@@ -29,12 +29,12 @@
     "graphql-request": "^7.1.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.12",
-    "@types/better-sqlite3": "^7.6.12",
+    "@biomejs/biome": "2.5.14",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/d3": "^7.4.3",
     "@types/d3-sankey": "^0.12.5",
     "@types/express": "^5.0.0",
-    "@types/node": "^26.4.1",
+    "@types/node": "^26.6.1",
     "esbuild": "^0.28.2",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2"
